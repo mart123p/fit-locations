@@ -1,23 +1,24 @@
 #!/usr/bin/env python3 
 #-----------------------------------------------------------------------------------------------
-# Garmin FIT to GeoJSON Converter
+# Garmin FIT Locations Intepreter
 #-----------------------------------------------------------------------------------------------
 #
 # Description:
-#   Converts `Lctns.fit` to GeoJSON from a Garmin Instinct or similar watch.
+#   Reads `Lctns.fit` and outputs the locations to stdout.
 #
 #   Arran Smith
 #   Created: 2020-08-19
+#
+#   Martin Pouliot (Console output changes)
+#   Modified: 2021-07-27
 #
 #-----------------------------------------------------------------------------------------------
 
 import sys
 import argparse
 import fitparse
-from geojson import Point, Feature, FeatureCollection, dumps
-
-# Convert FIT to GeoJSON
-class FitGeoJSONConverter:
+from tabulate import tabulate
+class FitReader:
 
     def __init__(self):
         self.location_message = "unknown_29"
@@ -29,7 +30,7 @@ class FitGeoJSONConverter:
             "icon": "unknown_4",
         }
     
-    def convert(self, filename):
+    def read(self, filename):
 
         # Load the FIT file
 
@@ -38,7 +39,9 @@ class FitGeoJSONConverter:
 
         # Iterate over all messages of type "record"
         # (other types include "device_info", "file_creator", "event", etc)
-        fit_messages = []
+        table = []
+        table.append(["Name", "Coordinates", "Latitude", "Longitude"])
+        table.append([])
         for record in fitfile.get_messages(self.location_message):
 
             fit_message = {}
@@ -59,33 +62,19 @@ class FitGeoJSONConverter:
                         else:
                             fit_message[key] = data.value
             
-            fit_messages.append(fit_message)
-
-        # Create GeoJson Features
-        features = []
-        for fit_message in fit_messages:
-            point = Point((fit_message["longitude"], fit_message["latitude"]))
-            props = {key:val for key, val in fit_message.items() if key != "longitude" and key != "latitude"} 
-            feature = Feature(geometry=point, properties=props)
-            features.append(feature)
-
-        return FeatureCollection(features)
+            coordinates = "{},{}".format(fit_message["latitude"], fit_message["longitude"])
+            table.append([fit_message["name"], coordinates, fit_message["latitude"], fit_message["longitude"]])
+        
+        print(tabulate(table))
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("fit_geojson_conveter", description='Convert FIT to GeoJSON')
+    parser = argparse.ArgumentParser("fit_locations_parser", description='Parse FIT locations files')
     parser.add_argument("-i", "--input", help="FIT input file location", type=str, required=True)
-    parser.add_argument("-o", "--output", help="GeoJSON output file location", type=str, required=False)
+
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
+
     args = parser.parse_args()
 
-    geoJSON = converter = FitGeoJSONConverter().convert(args.input)
-
-    if args.output:
-        file = open(args.output, "w")
-        file.write(dumps(geoJSON))
-        file.close()
-
-    else:
-        print(geoJSON)
+    FitReader().read(args.input)
