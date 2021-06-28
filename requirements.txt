@@ -1,2 +1,2 @@
-geojson
-fitparse
+fitparse==1.2.0
+tabulate==0.8.9
